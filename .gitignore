@@ -1,0 +1,85 @@
+# R environment
+.RData
+.RDataTmp
+.RDataTmp1
+.Rapp.history
+.Rhistory
+.Rproj.user/
+
+# macOS
+.DS_Store
+
+# Generated HTML
+README.html
+
+# Large raw data not needed to run the pipeline
+tollsatser.json
+
+# Generated output CSVs (recreated by running Walker_thesis_pipeline.R)
+walker_forecasts.csv
+walker_filtered_coefs.csv
+walker_x_values_at_origin.csv
+walker_contributions.csv
+walker_diagnostics.txt
+walker_usd_external_forecasts.csv
+walker_usd_external_filtered_coefs.csv
+walker_usd_external_x_values_at_origin.csv
+walker_usd_external_contributions.csv
+walker_usd_external_diagnostics.txt
+walker_harmonized_*.csv
+walker_usd_external_harmonized_*.csv
+xgb_main_harmonized_*.csv
+xgb_robustness_harmonized_*.csv
+comparison_harmonised_attributions.csv
+comparison_routing_compare.csv
+comparison_mean_shares_*.csv
+comparison_block_importance_*.csv
+residual_long.csv
+residual_metrics_long.csv
+ar1_forecasts.csv
+accuracy_table.csv
+
+# Older/intermediate output files
+comparison_contrib_shares.csv
+comparison_correlations_by_spec.csv
+comparison_long_contributions.csv
+comparison_long_shares.csv
+comparison_mean_abs_by_spec.csv
+comparison_mean_signed_by_spec.csv
+comparison_regime_summary.csv
+comparison_sign_summary.csv
+comparison_walker_additivity_check.csv
+comparison_xgb_additivity_check.csv
+walker_beta_ci.csv
+walker_beta_paths.csv
+walker_contributions_fullsample.csv
+walker_eval_summary.csv
+walker_feature_block_map.csv
+walker_scaling_info.csv
+walker_usd_external_eval_summary.csv
+walker_usd_external_feature_block_map.csv
+walker_usd_external_global_summary_main.csv
+walker_usd_external_regime_summary_main.csv
+walker_usd_external_shares_main.csv
+xgb_robustness_block_abs_main.csv
+xgb_robustness_block_signed_main.csv
+xgb_robustness_global_summary_main.csv
+xgb_robustness_regime_summary_main.csv
+xgb_robustness_shares_main.csv
+descriptive_stats_transformed.csv
+robustness_regime_long.csv
+robustness_regime_wide.csv
+walker_usd_external_block_abs_main.csv
+walker_usd_external_block_signed_main.csv
+walker_harmonized_global_summary.csv
+walker_harmonized_reconstruction_check.csv
+walker_harmonized_regime_summary.csv
+walker_harmonized_shares.csv
+xgb_v8_harmonized_results.json
+xgb_v8_harmonized_tuning_log.csv
+xgb_v8_harmonized_feature_map.csv
+xgb_v8_harmonized_shap_group_abs.csv
+xgb_v8_harmonized_shap_group_global_summary.csv
+xgb_v8_harmonized_shap_group_regime_summary.csv
+xgb_v8_harmonized_shap_signed.csv
+walker_diagnostics-Sebastians MacBook Pro.txt
