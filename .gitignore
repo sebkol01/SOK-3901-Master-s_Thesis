@@ -6,3 +6,6 @@
 !Walker_thesis_pipeline.R
 !XGBoost.ipynb
 !README.md
+!xgb_v8_harmonized_shap_group_signed.csv
+!xgb_harmonized_robustness_shap_group_signed.csv
+!xgb_v8_harmonized_predictions.csv
