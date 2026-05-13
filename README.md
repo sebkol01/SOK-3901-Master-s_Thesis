@@ -2,7 +2,7 @@
 ## Master's Thesis: Walker TVP vs XGBoost SHAP
 
 **Authors:** Seb & Amund  
-**Language:** R
+**Language:** R & Python (Python documented in .ipynb file)
 
 ---
 
