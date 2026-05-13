@@ -32,6 +32,7 @@ suppressPackageStartupMessages({
   library(scales)
   library(knitr)
   library(kableExtra)
+  library(corrplot)
 })
 
 # Set working directory — tries Amund's path first, then Seb's.
@@ -212,7 +213,7 @@ master_df <- master_df %>%
     unemp_lag1       = lag(unemployment, 1),
     rente_lag1       = lag(rente, 1),
 
-    # Target: YoY CPI inflation H = 3 months ahead (no look-ahead in features).
+    # Target: YoY CPI inflation H = 3 months ahead
     target = lead(kpi_yoy_raw, H)
   )
 
@@ -404,10 +405,40 @@ if (nrow(results_main) > 0) {
     cat("(Positive stat => walker better)\n")
   }
 
-  cat(sprintf("\nTotal divergent transitions: %d\n",
-              sum(results_main$n_div, na.rm = TRUE)))
-  cat(sprintf("Worst Rhat: %.3f\n", max(results_main$max_rhat, na.rm = TRUE)))
-  cat(sprintf("Lowest ESS: %.0f\n", min(results_main$min_ess,  na.rm = TRUE)))
+  # Convergence diagnostics summary table (matches Table in thesis).
+  conv_diag <- data.frame(
+    Diagnostic = c(
+      "Number of fits",
+      "Divergent transitions per fit",
+      "Maximum R-hat",
+      "Minimum effective sample size",
+      "Mean fit time, minutes"
+    ),
+    Min    = c(nrow(results_main),
+               round(min(results_main$n_div,    na.rm = TRUE), 2),
+               round(min(results_main$max_rhat, na.rm = TRUE), 2),
+               round(min(results_main$min_ess,  na.rm = TRUE), 0),
+               round(min(results_main$elapsed,  na.rm = TRUE), 2)),
+    Median = c(NA,
+               round(median(results_main$n_div,    na.rm = TRUE), 2),
+               round(median(results_main$max_rhat, na.rm = TRUE), 2),
+               round(median(results_main$min_ess,  na.rm = TRUE), 0),
+               round(median(results_main$elapsed,  na.rm = TRUE), 2)),
+    Mean   = c(NA,
+               round(mean(results_main$n_div,    na.rm = TRUE), 2),
+               round(mean(results_main$max_rhat, na.rm = TRUE), 2),
+               round(mean(results_main$min_ess,  na.rm = TRUE), 0),
+               round(mean(results_main$elapsed,  na.rm = TRUE), 2)),
+    Max    = c(NA,
+               round(max(results_main$n_div,    na.rm = TRUE), 2),
+               round(max(results_main$max_rhat, na.rm = TRUE), 2),
+               round(max(results_main$min_ess,  na.rm = TRUE), 0),
+               round(max(results_main$elapsed,  na.rm = TRUE), 2)),
+    stringsAsFactors = FALSE
+  )
+  cat("\nConvergence diagnostics summary:\n")
+  print(conv_diag, row.names = FALSE, na.print = "--")
+  write.csv(conv_diag, "walker_convergence_diagnostics.csv", row.names = FALSE)
 
   write.csv(results_main, "walker_forecasts.csv", row.names = FALSE)
   cat("Saved: walker_forecasts.csv\n")
@@ -581,10 +612,6 @@ walker_contrib_main <- read_csv("walker_contributions.csv",
                                 show_col_types = FALSE) %>%
   mutate(Date = as.Date(Date))
 
-# Ensure intercept column exists (all rows should have it from Part 2).
-if (!"intercept" %in% names(walker_contrib_main)) {
-  stop("'intercept' column missing from walker_contributions.csv.")
-}
 
 # Feature -> block aggregation.
 feature_long_main <- walker_contrib_main %>%
@@ -924,9 +951,25 @@ routing_compare_main <- data.frame(
         abs(joint_main[[paste0(b, "_WalkerAdj")]]), use = "complete.obs"))
 )
 
+routing_compare_usd <- data.frame(
+  block       = BLOCK_NAMES,
+  pct_agree   = sapply(BLOCK_NAMES, function(b)
+    mean(sign(joint_usd[[paste0(b, "_SHAP")]]) ==
+           sign(joint_usd[[paste0(b, "_WalkerAdj")]]), na.rm = TRUE)),
+  corr_signed = sapply(BLOCK_NAMES, function(b)
+    cor(joint_usd[[paste0(b, "_SHAP")]],
+        joint_usd[[paste0(b, "_WalkerAdj")]], use = "complete.obs")),
+  corr_abs    = sapply(BLOCK_NAMES, function(b)
+    cor(abs(joint_usd[[paste0(b, "_SHAP")]]),
+        abs(joint_usd[[paste0(b, "_WalkerAdj")]]), use = "complete.obs"))
+)
+
 write_csv(routing_compare_main, "comparison_routing_compare.csv")
+write_csv(routing_compare_usd,  "comparison_routing_compare_usd.csv")
 cat("\nSign agreement and correlations (main spec):\n")
-print(routing_compare_main)
+print(routing_compare_main %>% mutate(across(where(is.numeric), ~round(., 3))))
+cat("\nSign agreement and correlations (USD robustness spec):\n")
+print(routing_compare_usd  %>% mutate(across(where(is.numeric), ~round(., 3))))
 
 # Mean signed and absolute attribution shares — both specs.
 compute_mean_shares <- function(joint) {
@@ -949,6 +992,10 @@ mean_shares_main <- compute_mean_shares(joint_main)
 mean_shares_usd  <- compute_mean_shares(joint_usd)
 write_csv(mean_shares_main, "comparison_mean_shares_main.csv")
 write_csv(mean_shares_usd,  "comparison_mean_shares_usd.csv")
+cat("\nMean attribution shares (main spec):\n")
+print(mean_shares_main %>% mutate(across(where(is.numeric), ~round(., 3))))
+cat("\nMean attribution shares (USD robustness spec):\n")
+print(mean_shares_usd  %>% mutate(across(where(is.numeric), ~round(., 3))))
 
 # Block importance by regime (mean absolute share × 100) — both specs.
 compute_block_importance <- function(joint) {
@@ -1034,8 +1081,52 @@ residual_metrics_main <- residual_long_main %>%
 write_csv(residual_long_main,    "residual_long.csv")
 write_csv(residual_metrics_main, "residual_metrics_long.csv")
 
-cat("\nResidual metrics (Var and E|Delta| by block and regime):\n")
-print(residual_metrics_main)
+cat("\nResidual metrics (Var and E|Delta| by block and regime, main spec):\n")
+print(residual_metrics_main %>% mutate(across(where(is.numeric), ~round(., 3))))
+
+# USD robustness residual decomposition — identical procedure using joint_usd.
+residual_df_usd <- joint_usd %>%
+  mutate(
+    Delta_AR       = AR_SHAP       - AR_WalkerAdj,
+    Delta_PPI      = PPI_SHAP      - PPI_WalkerAdj,
+    Delta_Monetary = Monetary_SHAP - Monetary_WalkerAdj,
+    Delta_FX       = FX_SHAP       - FX_WalkerAdj,
+    Delta_Oil      = Oil_SHAP      - Oil_WalkerAdj,
+    Delta_Trade    = Trade_SHAP    - Trade_WalkerAdj,
+    Delta_Labour   = Labour_SHAP   - Labour_WalkerAdj
+  ) %>%
+  select(Date, regime, starts_with("Delta_"))
+
+residual_long_usd <- residual_df_usd %>%
+  pivot_longer(
+    cols         = starts_with("Delta_"),
+    names_to     = "block",
+    names_prefix = "Delta_",
+    values_to    = "Delta"
+  ) %>%
+  mutate(block = factor(block, levels = BLOCK_NAMES))
+
+residual_metrics_usd <- residual_long_usd %>%
+  group_by(block, regime) %>%
+  summarise(
+    var_delta = var(Delta, na.rm = TRUE),
+    mean_abs  = mean(abs(Delta), na.rm = TRUE),
+    n_obs     = sum(!is.na(Delta)),
+    .groups   = "drop"
+  ) %>%
+  mutate(
+    regime = factor(regime,
+                    levels = c("COVID (2020–2021)", "Energy Crisis",
+                               "Disinflation", "Normalization"),
+                    labels = c("COVID", "Energy", "Disinfl.", "Normal"))
+  ) %>%
+  arrange(block, regime)
+
+write_csv(residual_long_usd,    "residual_long_usd.csv")
+write_csv(residual_metrics_usd, "residual_metrics_long_usd.csv")
+
+cat("\nResidual metrics (Var and E|Delta| by block and regime, USD robustness spec):\n")
+print(residual_metrics_usd %>% mutate(across(where(is.numeric), ~round(., 3))))
 
 
 # =============================================================================
@@ -1045,7 +1136,7 @@ print(residual_metrics_main)
 # =============================================================================
 
 # AR(1) expanding-window backtest.
-model_df_ar1 <- df_master %>%
+model_df_ar1 <- master_df %>%
   mutate(
     kpi_yoy_raw  = (kpi / lag(kpi, 12) - 1) * 100,
     kpi_yoy_lag1 = lag(kpi_yoy_raw, 1),
@@ -1101,6 +1192,66 @@ if (file.exists("xgb_v8_harmonized_predictions.csv")) {
 write_csv(accuracy_table, "accuracy_table.csv")
 cat("\nForecast accuracy:\n")
 print(accuracy_table)
+
+# =============================================================================
+# DIEBOLD-MARIANO TESTS OF EQUAL PREDICTIVE ACCURACY
+# H0: equal expected squared-error loss (two-sided).
+# Newey-West variance correction at lag h-1 = H-1.
+# Requires the forecast package: install.packages("forecast")
+# =============================================================================
+
+library(forecast)
+
+# Forecast errors on the Walker evaluation sample (actual - predicted).
+e_walker <- fc_main_acc$y_actual - fc_main_acc$y_hat
+e_rw     <- fc_main_acc$y_actual - fc_main_acc$y_rw
+
+# AR(1) errors — align dates with Walker sample.
+ar1_aligned <- ar1_results %>%
+  inner_join(fc_main_acc %>% mutate(Date = as.Date(Date)) %>% select(Date),
+             by = "Date")
+e_ar1 <- ar1_aligned$y_actual - ar1_aligned$y_ar1
+
+run_dm <- function(e1, e2, name1, name2) {
+  test  <- dm.test(e1, e2, alternative = "two.sided", h = H, power = 2)
+  stars <- ifelse(test$p.value < 0.01, "***",
+           ifelse(test$p.value < 0.05, "**",
+           ifelse(test$p.value < 0.10, "*", "")))
+  data.frame(
+    Model1      = name1,
+    Model2      = name2,
+    RMSE1       = round(sqrt(mean(e1^2, na.rm = TRUE)), 3),
+    RMSE2       = round(sqrt(mean(e2^2, na.rm = TRUE)), 3),
+    RMSE_ratio  = round(sqrt(mean(e1^2, na.rm = TRUE)) /
+                        sqrt(mean(e2^2, na.rm = TRUE)), 3),
+    DM_stat     = round(as.numeric(test$statistic), 2),
+    p_value     = round(test$p.value, 3),
+    sig         = stars,
+    stringsAsFactors = FALSE
+  )
+}
+
+dm_results <- bind_rows(
+  run_dm(e_walker, e_rw,  "Walker (main)", "Random walk"),
+  run_dm(e_walker, e_ar1, "Walker (main)", "AR(1)")
+)
+
+# Add XGBoost comparisons if predictions file was loaded.
+if (exists("combined_xgb")) {
+  e_xgb_aligned <- combined_xgb$y_actual - combined_xgb$predicted_raw
+  e_rw_xgb      <- combined_xgb$y_rw - combined_xgb$y_actual  # align length
+  e_rw_xgb      <- combined_xgb$y_actual - combined_xgb$y_rw
+  e_walker_xgb  <- combined_xgb$y_actual - combined_xgb$y_hat
+  dm_results <- bind_rows(
+    dm_results,
+    run_dm(e_xgb_aligned, e_rw_xgb,     "XGBoost (main)", "Random walk"),
+    run_dm(e_xgb_aligned, e_walker_xgb, "XGBoost (main)", "Walker (main)")
+  )
+}
+
+cat("\nDiebold-Mariano tests (two-sided, squared error loss, h =", H, "):\n")
+print(dm_results, row.names = FALSE)
+write_csv(dm_results, "dm_test_results.csv")
 
 
 # =============================================================================
@@ -1413,3 +1564,77 @@ ggsave("residual_plot.png", p_residual, width = 12, height = 9, dpi = 150)
 
 cat("Saved: all model output figures\n")
 cat("\n=== PIPELINE COMPLETE ===\n")
+
+
+
+
+
+# =============================================================================
+# APPENDIX — PREDICTOR CORRELATION MATRIX
+# Pearson correlations between the nine lag-1 predictors over the full
+# estimation sample. Used to support the routing-under-correlation discussion
+# in Section 5. Outputs:
+#   - LaTeX table (kable -> stdout)
+#   - PDF correlogram (appendix_correlation_matrix.pdf)
+#   - CSV with raw correlations (appendix_predictor_correlations.csv)
+# =============================================================================
+
+# Use the same complete-case sample that the models are estimated on.
+X_cor <- model_df %>%
+  select(all_of(FEATURE_COLS)) %>%
+  as.data.frame()
+
+cor_mat <- cor(X_cor, method = "pearson", use = "complete.obs")
+
+# Pretty display names matching the thesis block taxonomy.
+pretty_names <- c(
+  kpi_yoy_lag1     = "CPI inflation (AR)",
+  ppi_yoy_lag1     = "PPI inflation",
+  oil_yoy_lag1     = "Oil price",
+  usd_nok_lag1     = "USD/NOK",
+  eur_nok_lag1     = "EUR/NOK",
+  import_yoy_lag1  = "Imports",
+  eksport_yoy_lag1 = "Exports",
+  unemp_lag1       = "Unemployment",
+  rente_lag1       = "Policy rate"
+)
+rownames(cor_mat) <- pretty_names[rownames(cor_mat)]
+colnames(cor_mat) <- pretty_names[colnames(cor_mat)]
+
+# --- LaTeX table -------------------------------------------------------------
+cor_tbl <- cor_mat %>%
+  round(2) %>%
+  as.data.frame()
+
+cor_tex <- cor_tbl %>%
+  kable(format     = "latex",
+        booktabs   = TRUE,
+        caption    = "Pearson correlations between lagged predictors, full estimation sample",
+        label      = "predictor_correlations",
+        align      = "r") %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+
+cat("\n=== Predictor correlation matrix (LaTeX) ===\n")
+print(cor_tex)
+
+# --- Visual correlogram (saved to PDF) --------------------------------------
+pdf("appendix_correlation_matrix.pdf", width = 7, height = 6)
+corrplot(cor_mat,
+         method     = "color",
+         type       = "upper",
+         order      = "original",
+         addCoef.col = "black",
+         number.cex  = 0.7,
+         tl.col      = "black",
+         tl.srt      = 45,
+         tl.cex      = 0.85,
+         diag        = FALSE,
+         mar         = c(0, 0, 1, 0))
+dev.off()
+
+# --- CSV for reference ------------------------------------------------------
+write.csv(cor_mat, "appendix_predictor_correlations.csv")
+
+cat("\nSaved:\n",
+    "  appendix_correlation_matrix.pdf\n",
+    "  appendix_predictor_correlations.csv\n", sep = "")
