@@ -405,7 +405,7 @@ if (nrow(results_main) > 0) {
     cat("(Positive stat => walker better)\n")
   }
 
-  # Convergence diagnostics summary table (matches Table in thesis).
+  # Convergence diagnostics summary table
   conv_diag <- data.frame(
     Diagnostic = c(
       "Number of fits",
@@ -1126,7 +1126,7 @@ write_csv(residual_long_usd,    "residual_long_usd.csv")
 write_csv(residual_metrics_usd, "residual_metrics_long_usd.csv")
 
 cat("\nResidual metrics (Var and E|Delta| by block and regime, USD robustness spec):\n")
-print(residual_metrics_usd %>% mutate(across(where(is.numeric), ~round(., 3))))
+print(n = 28, residual_metrics_usd %>% mutate(across(where(is.numeric), ~round(., 3))))
 
 
 # =============================================================================
